@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,11 +21,10 @@ export default function TreeScreen() {
   const [gitInitialView, setGitInitialView] = useState<"main" | "import" | "push-existing" | "token" | undefined>(undefined);
   const [showApk, setShowApk] = useState(false);
 
-  // ── Disparo rápido EAS ──
   const [easToken, setEasToken] = useState("");
   const [easBuilding, setEasBuilding] = useState(false);
   const [easMsg, setEasMsg] = useState("");
-  const [showEasCard, setShowEasCard] = useState(true);
+  const [showEasCard, setShowEasCard] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem("apk_eas_token").then(v => { if (v) setEasToken(v); });
@@ -90,57 +89,56 @@ export default function TreeScreen() {
 
       {/* Barra de ações rápidas */}
       <View style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
         paddingHorizontal: 10,
         paddingTop: insets.top + 8,
         paddingBottom: 8,
         backgroundColor: colors.card,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        flexWrap: "wrap",
+        gap: 8,
       }}>
-        <TouchableOpacity
-          onPress={() => openGitHub("token")}
-          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#6366f122", borderWidth: 1, borderColor: "#6366f144", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-        >
-          <Feather name="link" size={13} color="#6366f1" />
-          <Text style={{ color: "#6366f1", fontSize: 11, fontWeight: "700" }}>URL Pública</Text>
-        </TouchableOpacity>
+        {/* Linha 1: GitHub */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => openGitHub("token")}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#22c55e22", borderWidth: 1, borderColor: "#22c55e44", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 }}
+          >
+            <Feather name="github" size={13} color="#22c55e" />
+            <Text style={{ color: "#22c55e", fontSize: 11, fontWeight: "700" }}>Token GitHub</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => openGitHub("import")}
-          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#22c55e22", borderWidth: 1, borderColor: "#22c55e44", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-        >
-          <Feather name="download" size={13} color="#22c55e" />
-          <Text style={{ color: "#22c55e", fontSize: 11, fontWeight: "700" }}>Importar</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => openGitHub("import")}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#6366f122", borderWidth: 1, borderColor: "#6366f144", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 }}
+          >
+            <Feather name="download" size={13} color="#6366f1" />
+            <Text style={{ color: "#6366f1", fontSize: 11, fontWeight: "700" }}>Importar</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => openGitHub("push-existing")}
-          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#007acc22", borderWidth: 1, borderColor: "#007acc44", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-        >
-          <Feather name="upload-cloud" size={13} color="#007acc" />
-          <Text style={{ color: "#007acc", fontSize: 11, fontWeight: "700" }}>Publicar</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => openGitHub("push-existing")}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#007acc22", borderWidth: 1, borderColor: "#007acc44", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 }}
+          >
+            <Feather name="upload-cloud" size={13} color="#007acc" />
+            <Text style={{ color: "#007acc", fontSize: 11, fontWeight: "700" }}>Exportar</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setShowApk(true)}
-          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7c3aed22", borderWidth: 1, borderColor: "#7c3aed44", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-        >
-          <Feather name="smartphone" size={13} color="#7c3aed" />
-          <Text style={{ color: "#7c3aed", fontSize: 11, fontWeight: "700" }}>Gerar APK</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowApk(true)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7c3aed22", borderWidth: 1, borderColor: "#7c3aed44", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 }}
+          >
+            <Feather name="smartphone" size={13} color="#7c3aed" />
+            <Text style={{ color: "#7c3aed", fontSize: 11, fontWeight: "700" }}>Gerar APK</Text>
+          </TouchableOpacity>
 
-        {/* Botão Disparar rápido */}
-        <TouchableOpacity
-          onPress={() => { setShowEasCard(v => !v); setEasMsg(""); }}
-          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: showEasCard ? "#f97316" : "#f9731622", borderWidth: 1, borderColor: "#f9731644", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
-        >
-          <Feather name="zap" size={13} color={showEasCard ? "#fff" : "#f97316"} />
-          <Text style={{ color: showEasCard ? "#fff" : "#f97316", fontSize: 11, fontWeight: "700" }}>Disparar APK</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setShowEasCard(v => !v); setEasMsg(""); }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: showEasCard ? "#f97316" : "#f9731622", borderWidth: 1, borderColor: "#f9731644", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 }}
+          >
+            <Feather name="zap" size={13} color={showEasCard ? "#fff" : "#f97316"} />
+            <Text style={{ color: showEasCard ? "#fff" : "#f97316", fontSize: 11, fontWeight: "700" }}>Disparar APK</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Card de disparo rápido EAS */}
