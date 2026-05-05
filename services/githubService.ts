@@ -1,11 +1,9 @@
 import JSZip from "jszip";
-import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
 
 const GH_API = "https://api.github.com";
 
 const BINARY_EXTS = new Set([
-  "png","jpg","jpeg","gif","webp","ico","bmp","svg",
+  "png","jpg","jpeg","gif","webp","ico","bmp",
   "pdf","zip","tar","gz","7z","rar","xz","bz2",
   "mp3","mp4","wav","mov","avi","mkv","flac",
   "ttf","otf","woff","woff2","eot","exe","dll",
@@ -16,6 +14,16 @@ const BINARY_EXTS = new Set([
 function isBinary(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase() || "";
   return BINARY_EXTS.has(ext);
+}
+
+function mimeForExt(ext: string): string {
+  const map: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+    gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    ico: "image/x-icon", pdf: "application/pdf",
+    woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf",
+  };
+  return map[ext] || "application/octet-stream";
 }
 
 async function ghFetch(
@@ -90,25 +98,16 @@ export async function cloneRepo(
   branch?: string,
   onProgress?: (current: number, total: number, phase: string) => void
 ): Promise<{ files: ClonedFile[]; fetched: number; skipped: number }> {
-  const mimeForExt = (ext: string) =>
-    ext === "png" ? "image/png" :
-    ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
-    ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" :
-    ext === "svg" ? "image/svg+xml" : ext === "ico" ? "image/x-icon" :
-    ext === "pdf" ? "application/pdf" : ext === "woff" ? "font/woff" :
-    ext === "woff2" ? "font/woff2" : ext === "ttf" ? "font/ttf" :
-    "application/octet-stream";
-
-  // Passo 1: obter branch padrão
   onProgress?.(0, 100, "Conectando ao repositório...");
+
   const repoRes = await ghFetch(`/repos/${owner}/${repo}`, token);
   if (!repoRes.ok) throw new Error(`Repositório não encontrado (${repoRes.status})`);
   const repoData: GHRepo = await repoRes.json();
   const defaultBranch = branch || repoData.default_branch || "main";
 
-  // Passo 2: baixar o repo INTEIRO como ZIP — 1 requisição, sem limite de arquivos
-  // Suporta 38.000+ arquivos sem rate limiting (sem chamadas individuais por blob)
-  onProgress?.(5, 100, `Baixando ${owner}/${repo} como ZIP...`);
+  // Download ZIP usando fetch + arrayBuffer — funciona em todas as plataformas
+  // ArrayBuffer não é limitado pelo truncamento de 16 MB do Hermes (que afeta só strings)
+  onProgress?.(5, 100, `Baixando ${owner}/${repo}...`);
 
   const zipApiUrl = `${GH_API}/repos/${owner}/${repo}/zipball/${defaultBranch}`;
   const authHeaders: Record<string, string> = {
@@ -117,52 +116,25 @@ export async function cloneRepo(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  let zip: any;
-
-  if (Platform.OS !== "web" && FileSystem.cacheDirectory) {
-    // No APK: download para disco, depois lê como Blob via XHR.
-    // NÃO usamos readAsStringAsync(base64) — o Hermes trunca strings
-    // maiores que ~16 MB, então ZIPs grandes chegam corrompidos/incompletos.
-    // XHR com responseType="blob" lê o arquivo binário completo sem limite.
-    const tmpUri = `${FileSystem.cacheDirectory}devmobile_clone_${Date.now()}.zip`;
-    const dlResult = await FileSystem.downloadAsync(zipApiUrl, tmpUri, {
-      headers: authHeaders,
-    });
-    if (dlResult.status !== 200) {
-      await FileSystem.deleteAsync(tmpUri, { idempotent: true }).catch(() => {});
-      throw new Error(`Falha ao baixar repositório ZIP (${dlResult.status})`);
-    }
-    onProgress?.(30, 100, "Lendo ZIP do disco...");
-    const blob: Blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("GET", tmpUri, true);
-      xhr.responseType = "blob";
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 0) resolve(xhr.response as Blob);
-        else reject(new Error(`XHR status ${xhr.status}`));
-      };
-      xhr.onerror = () => reject(new Error("XHR error ao ler ZIP do disco"));
-      xhr.send();
-    });
-    await FileSystem.deleteAsync(tmpUri, { idempotent: true }).catch(() => {});
-    onProgress?.(38, 100, "Descompactando arquivos...");
-    zip = await JSZip.loadAsync(blob);
-  } else {
-    // Na web (PWA): fetch normal funciona bem
+  let zipData: ArrayBuffer;
+  try {
     const zipRes = await fetch(zipApiUrl, { headers: authHeaders });
     if (!zipRes.ok) {
-      throw new Error(`Falha ao baixar repositório ZIP (${zipRes.status})`);
+      throw new Error(`Falha ao baixar repositório (${zipRes.status}). Verifique o token e tente novamente.`);
     }
-    const zipData = await zipRes.arrayBuffer();
-    onProgress?.(40, 100, "Descompactando arquivos...");
-    zip = await JSZip.loadAsync(zipData);
+    onProgress?.(20, 100, "Recebendo dados...");
+    zipData = await zipRes.arrayBuffer();
+  } catch (e: any) {
+    if (e?.message?.includes("status")) throw e;
+    throw new Error(`Erro de rede ao baixar repositório: ${e?.message || String(e)}`);
   }
+
+  onProgress?.(40, 100, "Descompactando arquivos...");
+  const zip = await JSZip.loadAsync(zipData);
 
   const allEntries: Array<[string, any]> = Object.entries(zip.files);
   const fileEntries = allEntries.filter(([, e]) => !e.dir);
-  const total = fileEntries.length;
 
-  // Filtra e resolve caminhos antes de extrair
   const validEntries: Array<{ relativePath: string; entry: any }> = [];
   for (const [fullPath, entry] of fileEntries) {
     const parts = (fullPath as string).split("/");
@@ -172,8 +144,6 @@ export async function cloneRepo(
     validEntries.push({ relativePath, entry });
   }
 
-  // Extração paralela em lotes — processa 200 arquivos ao mesmo tempo
-  // (muito mais rápido que serial — 40.000 arquivos em segundos)
   const BATCH = 200;
   const files: ClonedFile[] = [];
   let skipped = 0;
@@ -259,22 +229,6 @@ async function getLatestCommitSha(
   return data.object.sha;
 }
 
-async function createBlob(
-  token: string,
-  owner: string,
-  repo: string,
-  content: string
-): Promise<string> {
-  const res = await ghFetch(`/repos/${owner}/${repo}/git/blobs`, token, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, encoding: "utf-8" }),
-  });
-  if (!res.ok) throw new Error("Falha ao criar blob");
-  const data = await res.json();
-  return data.sha;
-}
-
 export async function pushFiles(
   token: string,
   owner: string,
@@ -292,7 +246,6 @@ export async function pushFiles(
   );
   const total = validFiles.length;
 
-  // Criar blobs em lotes de 10 para evitar rate limit
   const CHUNK = 10;
   const treeNodes: Array<{ path: string; mode: string; type: string; sha: string }> = [];
   let done = 0;
@@ -318,7 +271,7 @@ export async function pushFiles(
       if (r.status === "fulfilled") treeNodes.push(r.value as any);
     }
     done += chunk.length;
-    onProgress?.(done, total, `Enviando blobs ${done}/${total}...`);
+    onProgress?.(done, total, `Enviando arquivos ${done}/${total}...`);
   }
 
   onProgress?.(total, total, "Criando commit...");
@@ -374,7 +327,6 @@ export async function enablePages(
   branch = "main",
   path: "/" | "/docs" = "/"
 ): Promise<PagesInfo> {
-  // Primeiro tenta PATCH (já existe), depois POST (não existe)
   const body = JSON.stringify({ source: { branch, path } });
   let res = await ghFetch(`/repos/${owner}/${repo}/pages`, token, {
     method: "POST",
@@ -382,7 +334,6 @@ export async function enablePages(
     body,
   });
   if (res.status === 409 || res.status === 422) {
-    // Já existe — atualiza
     res = await ghFetch(`/repos/${owner}/${repo}/pages`, token, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
