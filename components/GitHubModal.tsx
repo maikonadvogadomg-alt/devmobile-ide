@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -152,6 +153,7 @@ export default function GitHubModal({
   };
 
   const handleImportOpen = async () => {
+    if (!token) { setView("token"); return; }
     setView("import");
     if (repos.length === 0) await fetchRepos(token);
   };
@@ -437,7 +439,6 @@ export default function GitHubModal({
             <TouchableOpacity
               onPress={async () => {
                 try {
-                  const { default: Clipboard } = await import("expo-clipboard");
                   const text = await Clipboard.getStringAsync();
                   const tok = (text || "").trim();
                   if (!tok) { Alert.alert("Área de transferência vazia", "Copie seu token do GitHub primeiro e tente novamente."); return; }
@@ -705,6 +706,30 @@ export default function GitHubModal({
         {/* ── IMPORT VIEW ── */}
         {view === "import" && (
           <View style={{ flex: 1 }}>
+            {/* URL pública rápida no topo */}
+            <View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>Importar por URL pública</Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                <TextInput
+                  style={[{ flex: 1, height: 38, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, fontSize: 13 }, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card }]}
+                  value={publicUrl}
+                  onChangeText={setPublicUrl}
+                  placeholder="https://github.com/usuario/repo"
+                  placeholderTextColor={colors.mutedForeground}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  onPress={handleClonePublic}
+                  disabled={!publicUrl.trim() || cloning}
+                  style={{ height: 38, paddingHorizontal: 14, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: publicUrl.trim() && !cloning ? colors.primary : colors.secondary }}
+                >
+                  {cloning ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="download" size={16} color="#fff" />}
+                </TouchableOpacity>
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontSize: 10 }}>Funciona sem token para repositórios públicos. Ou selecione da sua lista abaixo:</Text>
+            </View>
+
             {/* Search bar */}
             <View style={[s.searchBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
               <Feather name="search" size={14} color={colors.mutedForeground} />
@@ -712,7 +737,7 @@ export default function GitHubModal({
                 style={[s.searchInput, { color: colors.foreground }]}
                 value={repoSearch}
                 onChangeText={setRepoSearch}
-                placeholder="Buscar repositório..."
+                placeholder="Buscar nos seus repositórios..."
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="none"
               />
