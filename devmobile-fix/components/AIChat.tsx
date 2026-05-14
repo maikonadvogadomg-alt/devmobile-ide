@@ -202,64 +202,36 @@ async function callAI(
       return callGeminiDirect(directKey.trim(), chatMsgs, systemMsg?.content, model, onChunk);
     }
 
-    // PRIORIDADE 2: servidor externo (proxy gratuito)
-    const parseSSELine = (line: string) => {
-      if (!line.startsWith("data: ")) return;
-      const j = line.slice(6).trim();
+    // PRIORIDADE 2: servidor externo disponível → usa proxy
+    if (apiBase) {
       try {
-        const parsed = JSON.parse(j);
-        if (parsed.error) throw new Error(parsed.error);
-        if (parsed.content) onChunk(parsed.content);
-      } catch (e) {
-        if (!(e instanceof SyntaxError)) throw e;
-      }
-    };
-
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
-      const body = JSON.stringify({
-        messages: chatMsgs.map((m) => ({ role: m.role, content: m.content })),
-        systemPrompt: systemMsg?.content,
-        model,
-      });
-      const response = await fetch(url, { method: "POST", headers, body, signal: ctrl.signal });
-      clearTimeout(t);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const useFullText = Platform.OS === "web" || !response.body;
-      if (useFullText) {
-        const text = await response.text();
-        for (const line of text.split("\n")) parseSSELine(line);
-        return;
-      }
-
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const j = line.slice(6).trim();
-          try {
-            const parsed = JSON.parse(j);
-            if (parsed.error) throw new Error(parsed.error);
-            if (parsed.done) return;
-            if (parsed.content) onChunk(parsed.content);
-          } catch (e) {
-            if (!(e instanceof SyntaxError)) throw e;
-          }
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 60000);
+        const body = JSON.stringify({
+          messages: chatMsgs.map((m) => ({ role: m.role, content: m.content })),
+          systemPrompt: systemMsg?.content,
+          model,
+          stream: false,
+        });
+        const response = await fetch(url, { method: "POST", headers, body, signal: ctrl.signal });
+        clearTimeout(t);
+        if (!response.ok) {
+          let errMsg = `HTTP ${response.status}`;
+          try { const j = await response.json() as { error?: string }; if (j.error) errMsg = j.error; } catch {}
+          throw new Error(errMsg);
         }
+        const data = await response.json() as { content?: string; error?: string };
+        if (data.error) throw new Error(data.error);
+        if (data.content) onChunk(data.content);
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(`IA indisponível: ${msg}. Verifique a conexão ou adicione sua chave Gemini em Configurações → GEMINI DIRETO.`);
       }
-      return;
-    } catch {
-      throw new Error("Gemini indisponível. Adicione sua chave gratuita em Configurações → GEMINI DIRETO.");
     }
+
+    // Sem servidor e sem chave → instrui imediatamente (sem esperar timeout)
+    throw new Error("Configure sua chave Gemini gratuita: Configurações → GEMINI DIRETO → cole a chave do aistudio.google.com");
   }
 
   // ── Demais provedores ────────────────────────────────────────────────────
@@ -415,6 +387,9 @@ const CHAT_MODES: { key: ChatMode; label: string; icon: string; color: string; p
 interface AIChatProps {
   pendingMessage?: string;
   onPendingMessageConsumed?: () => void;
+  headerPaddingTop?: number;
+  extraHeaderRight?: React.ReactNode;
+  paddingBottom?: number;
 }
 
 // ─── Extrai blocos de código com nome de arquivo da resposta da IA ───────────
@@ -444,18 +419,89 @@ function isTrigger(text: string): boolean {
 
 // ─── Pesquisa web automática via DuckDuckGo ────────────────────────────────────
 async function searchWeb(query: string, apiBase: string): Promise<string> {
-  try {
-    const resp = await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query.slice(0, 120))}`, {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!resp.ok) return "";
-    const data = await resp.json() as { results?: { title: string; snippet: string; url: string }[] };
-    if (!data.results?.length) return "";
-    const items = data.results.slice(0, 5).map((r, i) =>
+  const q = encodeURIComponent(query.slice(0, 120));
+  const format = (results: { title: string; snippet: string; url: string }[]) => {
+    if (!results.length) return "";
+    const items = results.slice(0, 5).map((r, i) =>
       `${i + 1}. **${r.title}**\n${r.snippet}${r.url ? `\nFonte: ${r.url}` : ""}`
     ).join("\n\n");
     return `\n\n🔍 RESULTADOS DA INTERNET para "${query}":\n${items}`;
+  };
+
+  // Tenta servidor primeiro (quando disponível)
+  if (apiBase) {
+    try {
+      const resp = await fetch(`${apiBase}/api/search?q=${q}`, { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.json() as { results?: { title: string; snippet: string; url: string }[] };
+        if (data.results?.length) return format(data.results);
+      }
+    } catch {}
+  }
+
+  // Fallback standalone: chama DuckDuckGo diretamente do celular (sem servidor)
+  try {
+    const url = `https://api.duckduckgo.com/?q=${q}&format=json&no_html=1&skip_disambig=1`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "DevMobile-IDE/1.0" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!resp.ok) return "";
+    const data = await resp.json() as any;
+    const results: { title: string; url: string; snippet: string }[] = [];
+    if (data.AbstractText) results.push({ title: data.Heading || query, url: data.AbstractURL || "", snippet: data.AbstractText });
+    for (const t of (data.RelatedTopics || [])) {
+      if (results.length >= 6) break;
+      if (t.Text && t.FirstURL) results.push({ title: t.Text.split(" - ")[0] || t.Text, url: t.FirstURL, snippet: t.Text });
+    }
+    return format(results);
   } catch { return ""; }
+}
+
+async function searchImages(query: string, apiBase: string): Promise<string> {
+  const buildResult = (imgs: { title: string; url: string }[]) => {
+    if (!imgs.length) return "";
+    const items = imgs.slice(0, 6).map((img, i) => `${i + 1}. **${img.title || query}**\n🖼️ ${img.url}`).join("\n\n");
+    return `\n\n🖼️ IMAGENS ENCONTRADAS para "${query}":\n${items}\n\n(Mostre os links de imagem acima ao usuário de forma organizada)`;
+  };
+
+  // Tenta servidor primeiro
+  if (apiBase) {
+    try {
+      const resp = await fetch(`${apiBase}/api/search-images?q=${encodeURIComponent(query.slice(0, 120))}`, { signal: AbortSignal.timeout(7000) });
+      if (resp.ok) {
+        const data = await resp.json() as { images?: { title: string; url: string; thumbnail: string }[] };
+        if (data.images?.length) return buildResult(data.images);
+      }
+    } catch {}
+  }
+
+  // Fallback standalone: Unsplash direto do celular (sem servidor, sem auth)
+  try {
+    const imgs = Array.from({ length: 6 }, (_, i) => ({
+      title: `${query} (${i + 1})`,
+      url: `https://source.unsplash.com/featured/800x600/?${encodeURIComponent(query)}&sig=${Date.now() + i}`,
+    }));
+    return buildResult(imgs);
+  } catch { return ""; }
+}
+
+// detecta se a mensagem pede busca de imagens e retorna o termo
+function extractImageSearchQuery(text: string): string | null {
+  const t = text.trim();
+  const pats = [
+    /^(?:busqu[ea]|pesquise?|procure?|encontre?|achar?)\s+(?:uma?\s+)?(?:imagem|foto|imagens|fotos|figura|figuras)\s+(?:de\s+)?(.+)/i,
+    /^(?:mostre?|me\s+mostre?|me\s+d[eê])\s+(?:uma?\s+)?(?:imagem|foto|imagens|fotos)\s+(?:de\s+)?(.+)/i,
+    /\bimagem\s+de\s+(.+)/i,
+    /\bfoto\s+de\s+(.+)/i,
+    /\bimage\s+(?:of|for)\s+(.+)/i,
+    /\bsearch\s+image\s+(?:of|for)?\s+(.+)/i,
+  ];
+  for (const p of pats) {
+    const m = t.match(p);
+    if (m?.[1]) return m[1].replace(/[?!.]+$/, "").trim();
+  }
+  return null;
 }
 
 // detecta se a mensagem pede busca na internet e retorna o termo
@@ -476,7 +522,7 @@ function extractSearchQuery(text: string): string | null {
   return null;
 }
 
-export default function AIChat({ pendingMessage, onPendingMessageConsumed }: AIChatProps = {}) {
+export default function AIChat({ pendingMessage, onPendingMessageConsumed, headerPaddingTop = 0, extraHeaderRight, paddingBottom = 0 }: AIChatProps = {}) {
   const colors = useColors();
   const apiBase = useApiBase();
   const { getActiveAIProvider, activeFile, activeProject, addAIProvider, aiProviders, setActiveAIProvider, aiMemory, settings, updateFile, createFile, createFiles, setActiveFile } = useApp();
@@ -735,8 +781,15 @@ Para múltiplos arquivos: um bloco de código por arquivo, cada um com seu camin
 
     // ── Pesquisa automática na internet ────────────────────────────────────────
     let searchResults = "";
-    const searchQuery = extractSearchQuery(text);
-    if (searchQuery && apiBase) {
+    const imageQuery = extractImageSearchQuery(text);
+    const searchQuery = imageQuery ? null : extractSearchQuery(text);
+
+    if (imageQuery && apiBase) {
+      searchResults = await searchImages(imageQuery, apiBase);
+      if (searchResults) {
+        systemContext += `\n\n${searchResults}\n\nApresente as imagens encontradas listando os links de forma clara e amigável. Diga ao usuário que pode copiar ou abrir os links.`;
+      }
+    } else if (searchQuery && apiBase) {
       searchResults = await searchWeb(searchQuery, apiBase);
       if (searchResults) {
         systemContext += `\n\n${searchResults}\n\nUse os resultados acima para responder com informações atuais da internet.`;
@@ -824,11 +877,11 @@ Para múltiplos arquivos: um bloco de código por arquivo, cada um com seu camin
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.background, paddingBottom }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: headerPaddingTop > 0 ? headerPaddingTop + 6 : 12 }]}>
         <Feather name="cpu" size={14} color={colors.primary} />
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Assistente IA</Text>
 
@@ -861,6 +914,8 @@ Para múltiplos arquivos: um bloco de código por arquivo, cada um com seu camin
             <Feather name="trash-2" size={14} color={colors.mutedForeground} />
           </TouchableOpacity>
         )}
+
+        {extraHeaderRight}
       </View>
 
       {/* Banner: aviso execuções de terminal limitadas */}
@@ -1334,7 +1389,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     gap: 8,
   },

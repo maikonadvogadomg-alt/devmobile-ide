@@ -183,7 +183,7 @@ const defaultSettings: AppSettings = {
   termuxPort: 8080,
   expoAccount: "maikon1",
   easProjectSlug: "app-ide",
-  serverEnabled: false,
+  serverEnabled: true,
 };
 
 const AppContext = createContext<AppContextType | null>(null);

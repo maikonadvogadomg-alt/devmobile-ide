@@ -112,6 +112,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="browser"
+        options={{
+          title: "Browser",
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="globe" label="Browser" color={color} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="ai"
         options={{
           title: "IA",

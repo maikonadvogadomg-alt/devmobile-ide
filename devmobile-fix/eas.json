@@ -12,12 +12,13 @@
       },
       "distribution": "internal",
       "cache": {
-        "disabled": false
+        "disabled": true
       },
       "node": "20.18.0",
       "env": {
-        "EXPO_PUBLIC_APP_MODE": "offline",
-        "EXPO_PUBLIC_API_STRATEGY": "offline",
+        "EXPO_PUBLIC_DOMAIN": "sk-code-editor.replit.app",
+        "EXPO_PUBLIC_APP_MODE": "cloud",
+        "EXPO_PUBLIC_API_STRATEGY": "cloud",
         "EXPO_PUBLIC_LOCAL_API_PORT": "8080",
         "EXPO_PUBLIC_LOCAL_PREVIEW_PORT": "8080",
         "EXPO_PUBLIC_ENABLE_TERMUX": "true",
