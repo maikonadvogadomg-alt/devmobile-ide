@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "DevMobile",
+    "slug": "app-ide",
+    "version": "2.8.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "devmobile",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d1117"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.devmobile.ide"
+    },
+    "android": {
+      "package": "com.devmobile.ide",
+      "versionCode": 43,
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0d1117"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true,
+          "useSQLCipher": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": false
+    },
+    "owner": "maikons-individual",
+    "extra": {
+      "eas": {
+        "projectId": "ed64784a-7938-4078-b91e-0168c9985a21"
+      },
+      "router": {}
+    }
+  }
+}

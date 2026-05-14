@@ -1,0 +1,56 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "resourceClass": "medium"
+      },
+      "distribution": "internal",
+      "cache": {
+        "disabled": false
+      },
+      "node": "20.18.0",
+      "env": {
+        "EXPO_PUBLIC_APP_MODE": "offline",
+        "EXPO_PUBLIC_API_STRATEGY": "offline",
+        "EXPO_PUBLIC_LOCAL_API_PORT": "8080",
+        "EXPO_PUBLIC_LOCAL_PREVIEW_PORT": "8080",
+        "EXPO_PUBLIC_ENABLE_TERMUX": "true",
+        "EXPO_PUBLIC_ENABLE_REMOTE_AI": "true",
+        "EXPO_PUBLIC_ENABLE_GITHUB": "true",
+        "EXPO_PUBLIC_ENABLE_REMOTE_DB": "true",
+        "EXPO_PUBLIC_ENABLE_REMOTE_TERMINAL": "false"
+      }
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "resourceClass": "medium"
+      },
+      "node": "20.18.0",
+      "cache": {
+        "disabled": false
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle",
+        "resourceClass": "medium"
+      },
+      "node": "20.18.0",
+      "cache": {
+        "disabled": false
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

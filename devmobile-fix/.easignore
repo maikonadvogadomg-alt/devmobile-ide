@@ -1,0 +1,24 @@
+# Excluir node_modules de todos os lugares (o EAS instala os deps no servidor)
+node_modules/
+
+# Excluir outros artifacts do workspace — o EAS não precisa instalar essas deps
+artifacts/api-server/
+artifacts/assistente-juridico/
+artifacts/mockup-sandbox/
+
+# Excluir o projeto APK standalone (npm, não pnpm)
+assistente-juridico-apk/
+
+# Excluir scripts do workspace
+scripts/
+
+# Arquivos temporários e de build
+.cache/
+.local/
+dist/
+tmp/
+out-tsc/
+*.tsbuildinfo
+.expo
+.expo-shared
+.git/

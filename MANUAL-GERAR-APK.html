@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual — Gerar APK DevMobile</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #0d1117; color: #e6edf3; }
+  h1 { color: #58a6ff; text-align: center; font-size: 24px; }
+  h2 { color: #3fb950; font-size: 18px; border-bottom: 2px solid #3fb950; padding-bottom: 6px; }
+  .step { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; margin: 14px 0; }
+  .num { background: #1a56db; color: white; border-radius: 50%; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin-right: 10px; }
+  .btn { background: #238636; color: white; padding: 8px 18px; border-radius: 6px; font-weight: bold; display: inline-block; margin: 4px 0; }
+  .info { background: #0d2b45; border: 1px solid #1a56db; border-radius: 8px; padding: 12px; margin: 10px 0; }
+  .warn { background: #2d1f00; border: 1px solid #d29922; border-radius: 8px; padding: 12px; margin: 10px 0; }
+  .ok { color: #3fb950; font-weight: bold; }
+  .link { color: #58a6ff; font-weight: bold; }
+  code { background: #0d1117; border: 1px solid #30363d; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+  img { max-width: 100%; border-radius: 8px; border: 1px solid #30363d; }
+  .big { font-size: 18px; font-weight: bold; }
+  .arrow { color: #58a6ff; font-size: 20px; }
+  ul li { margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<h1>📱 Manual: Gerar APK do DevMobile</h1>
+<p style="text-align:center;color:#8b949e;">Versão 2.8.0 — Independente do Replit</p>
+
+<div class="info">
+  <b>🎯 O que vai acontecer:</b> Você vai entrar no site da Expo, apertar alguns botões e em ~10 minutos terá o APK pronto para instalar no celular. Não precisa instalar nada no computador.
+</div>
+
+<h2>PASSO 1 — Entrar no site da Expo</h2>
+<div class="step">
+  <span class="num">1</span> Abra o navegador e acesse:<br><br>
+  <div style="text-align:center;font-size:20px;">
+    <a href="https://expo.dev" class="link" target="_blank">🌐 expo.dev</a>
+  </div>
+  <br>
+  <span class="num">2</span> Clique em <span class="btn">Sign In</span> no canto superior direito<br><br>
+  <span class="num">3</span> Entre com a conta: <code>maikons-individual</code>
+</div>
+
+<h2>PASSO 2 — Abrir o projeto DevMobile</h2>
+<div class="step">
+  <span class="num">4</span> Depois de entrar, clique no menu <span class="btn">Projects</span><br><br>
+  <span class="num">5</span> Procure o projeto chamado <code>app-ide</code> e clique nele<br><br>
+  <div class="info">
+    <b>Não encontrou?</b> Acesse direto: <a href="https://expo.dev/accounts/maikons-individual/projects/app-ide" class="link" target="_blank">expo.dev/accounts/maikons-individual/projects/app-ide</a>
+  </div>
+</div>
+
+<h2>PASSO 3 — Iniciar o Build do APK</h2>
+<div class="step">
+  <span class="num">6</span> No menu do projeto, clique em <span class="btn">Builds</span><br><br>
+  <span class="num">7</span> Clique no botão <span class="btn" style="background:#1a56db;">New build</span><br><br>
+  <span class="num">8</span> Vai abrir uma tela com opções. Configure assim:<br><br>
+  <ul>
+    <li><b>Platform:</b> selecione <code>Android</code></li>
+    <li><b>Build profile:</b> selecione <code>preview</code></li>
+    <li>Deixe o resto como está</li>
+  </ul>
+  <br>
+  <span class="num">9</span> Clique em <span class="btn">Build</span> para confirmar
+</div>
+
+<h2>PASSO 4 — Aguardar o Build</h2>
+<div class="step">
+  <span class="num">10</span> A tela vai mostrar o progresso do build<br><br>
+  <div class="info">
+    ⏱️ <b>Tempo médio: 10 a 15 minutos</b><br>
+    Você pode fechar o navegador — o build continua na nuvem da Expo.<br>
+    Volte quando quiser para ver se terminou.
+  </div>
+  <br>
+  <span class="num">11</span> Quando aparecer <span class="ok">✅ Finished</span>, clique no botão <span class="btn">Download</span><br><br>
+  <span class="num">12</span> Salve o arquivo <code>.apk</code> no celular e instale!
+</div>
+
+<h2>PASSO 5 — Instalar o APK no Celular</h2>
+<div class="step">
+  <span class="num">13</span> No Android: vá em <b>Configurações → Segurança → Fontes desconhecidas</b> e ative<br><br>
+  <span class="num">14</span> Abra o arquivo <code>.apk</code> que baixou e toque em <b>Instalar</b><br><br>
+  <div class="ok">✅ Pronto! O DevMobile está instalado e funciona sem precisar do Replit.</div>
+</div>
+
+<h2>Usando a IA no APK (sem pagar nada)</h2>
+<div class="step">
+  <div class="info">
+    💡 O APK usa sua própria chave de IA — sem depender do Replit. A <b>Groq</b> e o <b>Gemini</b> são gratuitos!
+  </div>
+  <br>
+  <b>Para pegar uma chave Groq (grátis):</b><br>
+  <ol>
+    <li>Acesse <a href="https://console.groq.com" class="link" target="_blank">console.groq.com</a></li>
+    <li>Crie uma conta gratuita</li>
+    <li>Vá em <b>API Keys → Create API Key</b></li>
+    <li>Copie a chave (começa com <code>gsk_...</code>)</li>
+    <li>No DevMobile, vá em <b>Configurações → IA</b> e cole a chave</li>
+  </ol>
+  <br>
+  <b>Para pegar uma chave Gemini (grátis):</b><br>
+  <ol>
+    <li>Acesse <a href="https://aistudio.google.com/apikey" class="link" target="_blank">aistudio.google.com/apikey</a></li>
+    <li>Entre com sua conta Google</li>
+    <li>Clique em <b>Create API Key</b></li>
+    <li>Copie a chave (começa com <code>AIza...</code>)</li>
+    <li>No DevMobile, vá em <b>Configurações → IA</b> e cole a chave</li>
+  </ol>
+</div>
+
+<div class="warn">
+  <b>⚠️ Se der algum problema no build:</b><br>
+  Se o build falhar, tente de novo — às vezes o servidor da Expo fica ocupado. O keystore (assinatura) já está salvo, não precisa criar de novo.
+</div>
+
+<p style="text-align:center;color:#8b949e;margin-top:30px;">DevMobile v2.8.0 — Saulo Kenji • Feito com ❤️</p>
+
+</body>
+</html>
