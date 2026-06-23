@@ -1,0 +1,13 @@
+# Exclui pastas que não fazem parte do app mobile
+  artifacts/api-server
+  artifacts/code-editor
+  pnpm-workspace.yaml
+  .github
+  devmobile-fix
+  server
+  MANUAL-GERAR-APK.html
+  *.zip
+  *.tar.gz
+  node_modules
+  .git
+  
