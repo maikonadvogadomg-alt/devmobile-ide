@@ -463,29 +463,57 @@ export default function EditorScreen() {
     }
   };
 
+  // ── DB: Parse connection string ──
+  const parseConnStr = (connStr: string) => {
+    try {
+      const s = connStr.replace(/^postgres:\/\//, "postgresql://");
+      const u = new URL(s);
+      return {
+        host: u.hostname,
+        user: decodeURIComponent(u.username),
+        password: decodeURIComponent(u.password),
+        database: u.pathname.replace(/^\//, "").split("?")[0],
+      };
+    } catch { return null; }
+  };
+
+  // ── DB: Query direta via Neon HTTP API (sem servidor local) ──
+  const queryNeon = async (connStr: string, sql: string) => {
+    const p = parseConnStr(connStr);
+    if (!p) throw new Error("URL inválida. Use o formato: postgresql://user:senha@host/banco");
+    // Neon e Postgres compatíveis: POST https://{host}/sql
+    const auth = btoa(`${p.user}:${p.password}`);
+    const res = await fetch(`https://${p.host}/sql`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Basic ${auth}`,
+        "Neon-Connection-String": connStr,
+      },
+      body: JSON.stringify({ query: sql, params: [] }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Erro HTTP ${res.status}: ${txt.slice(0, 200)}`);
+    }
+    return res.json();
+  };
+
   // ── DB: Testar Conexão ──
   const handleTestDB = async () => {
     if (!dbUrl.trim()) return;
     setDbTesting(true);
     setDbTestResult(null);
     try {
-      const apiBase = `http://localhost:8080/api`;
-      const res = await fetch(`${apiBase}/db/test-connection`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionString: dbUrl.trim() }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDbTestResult({ ok: true, msg: `✅ Conectado! ${data.version || "PostgreSQL OK"}` });
-        // Salva config
-        const cfg = { provider: "postgres" as const, connectionString: dbUrl.trim(), name: dbName.trim() || "Banco Principal" };
-        addDBConfig(cfg);
-      } else {
-        setDbTestResult({ ok: false, msg: "❌ Falha na conexão. Verifique a URL." });
-      }
-    } catch {
-      setDbTestResult({ ok: false, msg: "❌ Erro de rede. Verifique a URL e conexão." });
+      const data = await queryNeon(dbUrl.trim(), "SELECT version() as version, current_database() as banco");
+      const row = data.rows?.[0];
+      const ver = row?.version?.split(" ").slice(0, 2).join(" ") || "PostgreSQL OK";
+      setDbTestResult({ ok: true, msg: `✅ Conectado! ${ver} — banco: ${row?.banco || ""}` });
+      const cfg = { provider: "neon" as const, connectionString: dbUrl.trim(), name: dbName.trim() || "Banco Principal" };
+      addDBConfig(cfg);
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message || String(e);
+      setDbTestResult({ ok: false, msg: `❌ ${msg}` });
     } finally {
       setDbTesting(false);
     }
@@ -498,22 +526,25 @@ export default function EditorScreen() {
     setDbRunning(true);
     setDbSqlResult("");
     try {
-      const apiBase = `http://localhost:8080/api`;
-      const res = await fetch(`${apiBase}/db/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionString: dbUrl.trim(), query: query.trim() }),
-      });
-      const data = await res.json();
-      if (data.rows) {
-        setDbSqlResult(JSON.stringify(data.rows, null, 2));
+      const data = await queryNeon(dbUrl.trim(), query.trim());
+      if (data.rows !== undefined) {
+        if (data.rows.length === 0) {
+          setDbSqlResult(`✅ Executado! ${data.rowCount ?? 0} linha(s) afetada(s). Comando: ${data.command || "OK"}`);
+        } else {
+          // Formata como tabela de texto
+          const cols = data.fields?.map((f: { name: string }) => f.name) || Object.keys(data.rows[0] || {});
+          const header = cols.join(" | ");
+          const sep = cols.map((c: string) => "-".repeat(Math.max(c.length, 6))).join("-|-");
+          const rows = data.rows.map((r: Record<string, unknown>) => cols.map((c: string) => String(r[c] ?? "NULL")).join(" | "));
+          setDbSqlResult([header, sep, ...rows].join("\n") + `\n\n(${data.rows.length} linha(s))`);
+        }
       } else if (data.error) {
-        setDbSqlResult("Erro: " + data.error);
+        setDbSqlResult("❌ Erro: " + data.error);
       } else {
         setDbSqlResult(JSON.stringify(data, null, 2));
       }
-    } catch (e) {
-      setDbSqlResult("Erro: " + String(e));
+    } catch (e: unknown) {
+      setDbSqlResult("❌ " + ((e as Error)?.message || String(e)));
     } finally {
       setDbRunning(false);
     }
