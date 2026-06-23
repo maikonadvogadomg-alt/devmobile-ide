@@ -1,32 +1,31 @@
 name: EAS Build APK
 
-  on:
-    push:
-      branches: [main, master]
-    workflow_dispatch:
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
 
-  jobs:
-    build:
-      name: Build Android APK
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Setup Node.js 20
-          uses: actions/setup-node@v4
-          with:
-            node-version: 20
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-        - name: Setup Expo e EAS
-          uses: expo/expo-github-action@v8
-          with:
-            eas-version: latest
-            token: aCr6BbSinHgVYSzg3Dstp8pwYGdoaGEhu9ChadZC
+      - name: Setup Expo e EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: aCr6BbSinHgVYSzg3Dstp8pwYGdoaGEhu9ChadZC
 
-        - name: Instalar dependencias
-          run: npm install --legacy-peer-deps
+      - name: Instalar dependencias
+        run: npm install --legacy-peer-deps
 
-        - name: Build APK
-          run: eas build --platform android --profile preview --non-interactive
-  
+      - name: Build APK
+        run: eas build --platform android --profile preview --non-interactive
