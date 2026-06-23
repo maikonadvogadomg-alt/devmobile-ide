@@ -17,22 +17,16 @@ name: EAS Build APK
           uses: actions/setup-node@v4
           with:
             node-version: 20
-            cache: npm
 
-        - name: Setup Expo
+        - name: Setup Expo + EAS
           uses: expo/expo-github-action@v8
           with:
             eas-version: latest
-            token: ${{ secrets.EXPO_TOKEN }}
+            token: aCr6BbSinHgVYSzg3Dstp8pwYGdoaGEhu9ChadZC
 
         - name: Install dependencies
           run: npm install --legacy-peer-deps
 
-        - name: Build APK (preview)
-          run: eas build --platform android --profile preview --non-interactive --no-wait
-
-        - name: Build APK (download link)
-          run: |
-            echo "Build iniciado no EAS. Acesse https://expo.dev para baixar o APK quando pronto."
-            eas build:list --platform android --limit 1
+        - name: Build APK
+          run: eas build --platform android --profile preview --non-interactive
   
