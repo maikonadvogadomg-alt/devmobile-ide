@@ -1,10 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +20,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 import { formatSQLResult, listTables, getCurrentDbName, switchDatabase } from "@/services/localSQLite";
+
+const HISTORY_KEY = "terminal_code_history_v1";
+const MAX_HISTORY = 50;
 
 // ── Exemplos rápidos que realmente funcionam ─────────────────────────────────
 const EXEMPLOS = [
@@ -85,6 +90,42 @@ console.log("Projeto ativo:", "${activeProject?.name || 'nenhum'}");`);
   const scrollRef = useRef<ScrollView>(null);
   const idRef = useRef(0);
 
+  // ── Histórico de código executado ─────────────────────────────────────────
+  const [history, setHistory] = useState<Array<{ code: string; type: "js" | "sql"; ts: number }>>([]);
+  const [histIdx, setHistIdx] = useState(-1);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Carrega histórico salvo
+  useEffect(() => {
+    AsyncStorage.getItem(HISTORY_KEY).then(raw => {
+      if (raw) { try { setHistory(JSON.parse(raw)); } catch {} }
+    });
+  }, []);
+
+  const saveToHistory = useCallback((src: string, type: "js" | "sql") => {
+    setHistory(prev => {
+      const deduped = prev.filter(h => h.code !== src);
+      const next = [{ code: src, type, ts: Date.now() }, ...deduped].slice(0, MAX_HISTORY);
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      return next;
+    });
+    setHistIdx(-1);
+  }, []);
+
+  const navHistory = useCallback((dir: "up" | "down") => {
+    const filtered = history.filter(h => h.type === tab);
+    if (!filtered.length) return;
+    const newIdx = dir === "up"
+      ? Math.min(histIdx + 1, filtered.length - 1)
+      : Math.max(histIdx - 1, -1);
+    setHistIdx(newIdx);
+    if (newIdx === -1) return;
+    const entry = filtered[newIdx];
+    if (tab === "js") setCode(entry.code);
+    else setSqlInput(entry.code);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [history, histIdx, tab]);
+
   const mkId = () => String(++idRef.current);
 
   const addLine = useCallback((type: OutputLine["type"], text: string) => {
@@ -107,6 +148,7 @@ console.log("Projeto ativo:", "${activeProject?.name || 'nenhum'}");`);
       info: (...a: unknown[]) => lines.push("ℹ️ " + a.map(String).join(" ")),
     };
 
+    saveToHistory(src, "js");
     addLine("input", `▶ RODANDO (${new Date().toLocaleTimeString("pt-BR")})\n${src}`);
     const t0 = Date.now();
 
@@ -149,6 +191,7 @@ console.log("Projeto ativo:", "${activeProject?.name || 'nenhum'}");`);
     const q = sqlInput.replace(/^sql>\s*/i, "").trim();
     if (!q) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    saveToHistory(q, "sql");
     addLine("input", `🗃️ SQL: ${q}`);
 
     if (q.startsWith(".tabelas") || q.startsWith(".tables")) {
@@ -232,8 +275,8 @@ console.log("Projeto ativo:", "${activeProject?.name || 'nenhum'}");`);
             JS e SQLite rodam no seu celular • sem internet
           </Text>
         </View>
-        {/* Abas JS / SQL */}
-        <View style={{ flexDirection: "row", gap: 6 }}>
+        {/* Abas JS / SQL + botões histórico */}
+        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
           <TouchableOpacity
             onPress={() => setTab("js")}
             style={{
@@ -254,8 +297,81 @@ console.log("Projeto ativo:", "${activeProject?.name || 'nenhum'}");`);
           >
             <Text style={{ color: tab === "sql" ? "#10b981" : "#8b949e", fontSize: 12, fontWeight: "700" }}>SQL</Text>
           </TouchableOpacity>
+          {/* Navegação histórico */}
+          <TouchableOpacity onPress={() => navHistory("up")} style={{ padding: 6, backgroundColor: "#21262d", borderRadius: 6, borderWidth: 1, borderColor: "#30363d" }} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+            <Feather name="chevron-up" size={14} color={history.filter(h=>h.type===tab).length ? "#8b949e" : "#30363d"} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navHistory("down")} style={{ padding: 6, backgroundColor: "#21262d", borderRadius: 6, borderWidth: 1, borderColor: "#30363d" }} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+            <Feather name="chevron-down" size={14} color={histIdx > 0 ? "#8b949e" : "#30363d"} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowHistory(true)} style={{ padding: 6, backgroundColor: "#21262d", borderRadius: 6, borderWidth: 1, borderColor: "#30363d" }} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
+            <Feather name="clock" size={14} color={history.length ? "#8b949e" : "#30363d"} />
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── Modal Histórico ──────────────────────────────────────────────────── */}
+      <Modal visible={showHistory} animationType="slide" transparent onRequestClose={() => setShowHistory(false)}>
+        <View style={{ flex: 1, backgroundColor: "#000000cc" }}>
+          <View style={{ flex: 1, marginTop: 60, backgroundColor: "#161b22", borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+            {/* Cabeçalho */}
+            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#30363d" }}>
+              <Feather name="clock" size={16} color="#00d4aa" />
+              <Text style={{ color: "#e6edf3", fontSize: 15, fontWeight: "800", marginLeft: 8, flex: 1 }}>Histórico de Códigos</Text>
+              <TouchableOpacity onPress={() => { setHistory([]); AsyncStorage.removeItem(HISTORY_KEY); }} style={{ marginRight: 12 }}>
+                <Text style={{ color: "#f85149", fontSize: 12 }}>Limpar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowHistory(false)}>
+                <Feather name="x" size={20} color="#8b949e" />
+              </TouchableOpacity>
+            </View>
+            {/* Lista */}
+            <ScrollView contentContainerStyle={{ padding: 12, gap: 8, paddingBottom: 40 }}>
+              {history.length === 0 ? (
+                <Text style={{ color: "#484f58", textAlign: "center", marginTop: 40, fontSize: 14 }}>
+                  Nenhum código executado ainda.{"\n"}Aperte RODAR para salvar no histórico!
+                </Text>
+              ) : (
+                history.map((entry, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => {
+                      if (entry.type === "js") { setTab("js"); setCode(entry.code); }
+                      else { setTab("sql"); setSqlInput(entry.code); }
+                      setShowHistory(false);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }}
+                    style={{
+                      backgroundColor: entry.type === "js" ? "#7c3aed18" : "#10b98118",
+                      borderWidth: 1,
+                      borderColor: entry.type === "js" ? "#7c3aed44" : "#10b98144",
+                      borderRadius: 10,
+                      padding: 12,
+                      gap: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={{ backgroundColor: entry.type === "js" ? "#7c3aed33" : "#10b98133", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: entry.type === "js" ? "#a78bfa" : "#34d399", fontSize: 10, fontWeight: "700" }}>{entry.type.toUpperCase()}</Text>
+                      </View>
+                      <Text style={{ color: "#484f58", fontSize: 10, flex: 1 }}>
+                        {new Date(entry.ts).toLocaleString("pt-BR")}
+                      </Text>
+                      <Feather name="corner-down-left" size={12} color="#484f58" />
+                    </View>
+                    <Text
+                      numberOfLines={3}
+                      style={{ color: "#8b949e", fontSize: 12, fontFamily: "monospace", lineHeight: 18 }}
+                    >
+                      {entry.code}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Exemplos rápidos ────────────────────────────────────────────────── */}
       <ScrollView
