@@ -3,6 +3,7 @@ import { Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 
 import FileSidebar from "@/components/FileSidebar";
 import GitHubModal from "@/components/GitHubModal";
@@ -227,9 +228,9 @@ export default function TreeScreen() {
         </View>
       )}
 
-      {/* Árvore de arquivos */}
+      {/* Árvore de arquivos — ao tocar um arquivo vai direto para o Editor */}
       <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT + insets.bottom }}>
-        <FileSidebar />
+        <FileSidebar onClose={() => router.push("/editor")} />
       </View>
 
       {/* Modais */}
