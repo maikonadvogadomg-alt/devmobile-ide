@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -559,7 +560,6 @@ true;
   );
 }
 
-import { StyleSheet } from "react-native";
 const styles = StyleSheet.create({
   histBtn: {
     padding: 6, backgroundColor: "#21262d", borderRadius: 6,
