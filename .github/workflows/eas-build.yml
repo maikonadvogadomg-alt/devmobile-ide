@@ -1,31 +1,38 @@
 name: EAS Build APK
 
-on:
-  push:
-    branches: [main, master]
-  workflow_dispatch:
+  on:
+    push:
+      branches: [main, master]
+    workflow_dispatch:
 
-jobs:
-  build:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  jobs:
+    build:
+      name: Build Android APK (EAS)
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+        - name: Setup Node.js 20
+          uses: actions/setup-node@v4
+          with:
+            node-version: 20
+            cache: npm
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: aCr6BbSinHgVYSzg3Dstp8pwYGdoaGEhu9ChadZC
+        - name: Setup Expo
+          uses: expo/expo-github-action@v8
+          with:
+            eas-version: latest
+            token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        - name: Install dependencies
+          run: npm install --legacy-peer-deps
 
-      - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive
+        - name: Build APK (preview)
+          run: eas build --platform android --profile preview --non-interactive --no-wait
+
+        - name: Build APK (download link)
+          run: |
+            echo "Build iniciado no EAS. Acesse https://expo.dev para baixar o APK quando pronto."
+            eas build:list --platform android --limit 1
+  
